@@ -27,4 +27,7 @@ INSERT INTO `todos` (user_id, title, task, completed) VALUES (2, 'Book Club', 'U
 
 /* DROP TABLE IF EXISTS `users`;
 DROP TABLE IF EXISTS `todos`; */
-SELECT * FROM users;
+
+/* SELECT * FROM users; */
+/* DELETE FROM users WHERE username = 'AliceSmith'; */
+

@@ -48,10 +48,10 @@ func main() {
 	r.HandleFunc("/user/{username}/todo/", deleteTaskHandler).Methods("DELETE")
 
 	// 5. Get all todo lists (title) for a specific user
-	r.HandleFunc("/user/{username}/title/", getAllTitlesHandler).Methods("GET")
+	r.HandleFunc("/user/{username}/", getAllTitlesHandler).Methods("GET")
 
 	// 6. Get all tasks for a specific todo - title
-	//r.HandleFunc("/user/{username}/todo/{title}/tasks", getAllTasksHandler).Methods("GET")
+	r.HandleFunc("/user/{username}/{title}/tasks", getAllTasksHandler).Methods("GET")
 
 	http.ListenAndServe(":8080", r)
 }
@@ -100,7 +100,8 @@ func createTodoHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // TODO: Handle passwords
-// TEST: This function is used in multiple handlers, and might create a handler where it should not - e.g. delete handler? what happens?
+// TEST: This function is used in multiple handlers, and might create a handler where it should not - e.g. delete handler? what happens? Needs to be tested.
+// Might want to split it into two functions: one for getting the user ID and another for creating a new user if it does not exist.
 func getOrCreateUser(username string) (int64, error) {
 	var userID int64
 	err := db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userID)
@@ -247,4 +248,47 @@ func getAllTitlesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(titles)
+}
+
+func getAllTasksHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	username := vars["username"]
+	title := vars["title"]
+
+	if username == "" || title == "" {
+		http.Error(w, "Username and title are required", http.StatusBadRequest)
+		return
+	}
+
+	userID, err := getOrCreateUser(username)
+	if err != nil {
+		http.Error(w, "Failed to get user", http.StatusInternalServerError)
+		return
+	}
+
+	rows, err := db.Query("SELECT task, completed FROM todos WHERE user_id = ? AND title = ?", userID, title)
+	if err != nil {
+		http.Error(w, "Failed to get tasks", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var tasks []models.Todo
+	for rows.Next() {
+		var task models.Todo
+		if err := rows.Scan(&task.Task, &task.Completed); err != nil {
+			http.Error(w, "Failed to scan task", http.StatusInternalServerError)
+			return
+		}
+		task.UserID = userID
+		task.Title = title
+		tasks = append(tasks, task)
+	}
+
+	if err := rows.Err(); err != nil {
+		http.Error(w, "Error reading tasks", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(tasks)
 }
