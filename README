@@ -1,0 +1,41 @@
+# Go TODO API
+
+A simple RESTful TODO list API written in Go using SQLite and Gorilla Mux.
+
+## Features
+
+- Create todos (title + task) for specific users
+- Update existing todos (change title and mark as completed)
+- Delete tasks
+- List all todo titles for a user
+
+## Requirements
+
+- Go 1.20 or newer
+- SQLite (VSCode extension)
+
+## Setup
+
+1. **Clone the repository**
+    ```bash
+    git clone https://github.com/anitamalina/GOTODO.git
+    cd GOTODO
+    ```
+
+2. **Create the SQLite database**
+Ensure you have a database file at ./db/development.db.
+
+
+3. **Run the server**
+    ```bash
+    go run main.go
+    ```
+
+    You should see:
+    ```text
+    Server started on port 8080
+    ```
+
+## Example Request
+
+
