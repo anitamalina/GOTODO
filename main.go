@@ -8,17 +8,17 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"golang.org/x/crypto/bcrypt"
 	_ "modernc.org/sqlite"
 )
 
 var db *sql.DB
 
-// TODO: Add Middleware
 // TODO: Generate better IDs
-// TODO: Handle passwords securely
+// TODO: Handle passwords securely (authentication) - jwt token?
+// TODO: Add Middleware
 
 func main() {
-
 	var err error
 	db, err = sql.Open("sqlite", "./db/development.db")
 	if err != nil {
@@ -60,6 +60,11 @@ func StartHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "Welcome to the TODO API!\n")
 }
 
+func hashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	return string(bytes), err
+}
+
 func createTodoHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	username := vars["username"]
@@ -99,27 +104,43 @@ func createTodoHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Created todo for user '%s': [%s] %s\n", username, todo.Title, todo.Task)
 }
 
-// TODO: Handle passwords
-// TEST: This function is used in multiple handlers, and might create a handler where it should not - e.g. delete handler? what happens? Needs to be tested.
-// Might want to split it into two functions: one for getting the user ID and another for creating a new user if it does not exist.
-func getOrCreateUser(username string) (int64, error) {
+func getUserID(username string) (int64, error) {
 	var userID int64
 	err := db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userID)
+	if err != nil {
+		return 0, err
+	}
+	return userID, nil
+}
 
-	if err == sql.ErrNoRows {
-		// User does not exist, create a new user
-		res, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", username, "defaultPassword")
-		if err != nil {
-			return 0, err
-		}
-		userID, err = res.LastInsertId()
-		if err != nil {
-			return 0, err
-		}
-	} else if err != nil {
+// TODO: User doesn't provide password, so we use a default password
+// Ideally we should register the user with a password
+func createUser(username string) (int64, error) {
+	hashedPassword, err := hashPassword("defaultPassword")
+	if err != nil {
+		return 0, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	res, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", username, hashedPassword)
+	if err != nil {
 		return 0, err
 	}
 
+	userID, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return userID, nil
+}
+
+func getOrCreateUser(username string) (int64, error) {
+	userID, err := getUserID(username)
+	if err == sql.ErrNoRows {
+		return createUser(username)
+	} else if err != nil {
+		return 0, err
+	}
 	return userID, nil
 }
 
@@ -143,7 +164,7 @@ func updateTodoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := getOrCreateUser(username)
+	userID, err := getUserID(username)
 	if err != nil {
 		http.Error(w, "Failed to get user", http.StatusInternalServerError)
 		return
@@ -181,7 +202,7 @@ func deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := getOrCreateUser(username)
+	userID, err := getUserID(username)
 	if err != nil {
 		http.Error(w, "Failed to get user", http.StatusInternalServerError)
 		return
@@ -219,7 +240,7 @@ func getAllTitlesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := getOrCreateUser(username)
+	userID, err := getUserID(username)
 	if err != nil {
 		http.Error(w, "Failed to get user", http.StatusInternalServerError)
 		return
@@ -260,7 +281,7 @@ func getAllTasksHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := getOrCreateUser(username)
+	userID, err := getUserID(username)
 	if err != nil {
 		http.Error(w, "Failed to get user", http.StatusInternalServerError)
 		return

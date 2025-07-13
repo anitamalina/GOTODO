@@ -97,6 +97,17 @@ http://localhost:8080/user/AndreaSimson/todo/
 }
 ```
 
+Update todo completion for JamesCooper:
+http://localhost:8080/user/JamesCooper/todo/
+```json
+{
+  "old_title": "Movie Night",
+  "new_title": "Movie Night",
+	"task": "Inception",
+  "completed": true
+}
+```
+
 Delete todo from AndreaSimson:
 http://localhost:8080/user/AndreaSimson/todo/
 
