@@ -87,8 +87,14 @@ func createTodoHandler(w http.ResponseWriter, r *http.Request) {
 
 	// * Does user already exist?
 	// * If not, create a new user with the given username
-	userID, err := getOrCreateUser(username)
-	if err != nil {
+	userID, err := getUserID(username)
+	if err == sql.ErrNoRows {
+		userID, err = createUser(username)
+		if err != nil {
+			http.Error(w, "Failed to create user", http.StatusInternalServerError)
+			return
+		}
+	} else if err != nil {
 		http.Error(w, "Failed to get or create user in createTodoHandler", http.StatusInternalServerError)
 		return
 	}
@@ -131,16 +137,6 @@ func createUser(username string) (int64, error) {
 		return 0, err
 	}
 
-	return userID, nil
-}
-
-func getOrCreateUser(username string) (int64, error) {
-	userID, err := getUserID(username)
-	if err == sql.ErrNoRows {
-		return createUser(username)
-	} else if err != nil {
-		return 0, err
-	}
 	return userID, nil
 }
 
